@@ -46,6 +46,26 @@ public:
     IIDLoss( const double loss_rate ) : drop_dist_( loss_rate ) {}
 };
 
+class BurstyLoss : public LossQueue
+{
+private:
+    std::uniform_real_distribution uniform_dist_;
+    
+    const double probability_leave_loss_;
+    const double probability_leave_no_loss_;
+    
+    bool in_loss_state_;
+
+    bool drop_packet( const std::string & packet ) override;
+
+public:
+    BurstyLoss( const double prob_leave_loss, const double prob_leave_no_loss) : 
+        uniform_dist_( 0.0, 1.0 ),
+        probability_leave_loss_( prob_leave_loss ),
+        probability_leave_no_loss_( prob_leave_no_loss ),
+        in_loss_state_( false ) {}
+};
+
 class SwitchingLink : public LossQueue
 {
 private:
