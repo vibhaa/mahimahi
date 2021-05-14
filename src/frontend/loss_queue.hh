@@ -7,6 +7,7 @@
 #include <cstdint>
 #include <string>
 #include <random>
+#include <iostream>
 
 #include "file_descriptor.hh"
 
@@ -49,7 +50,7 @@ public:
 class BurstyLoss : public LossQueue
 {
 private:
-    std::uniform_real_distribution uniform_dist_;
+    std::uniform_real_distribution<> uniform_dist_;
     
     const double probability_leave_loss_;
     const double probability_leave_no_loss_;
@@ -63,7 +64,9 @@ public:
         uniform_dist_( 0.0, 1.0 ),
         probability_leave_loss_( prob_leave_loss ),
         probability_leave_no_loss_( prob_leave_no_loss ),
-        in_loss_state_( false ) {}
+        in_loss_state_( false ) {
+            std::cerr << "bursty loss link P(leave loss) " << prob_leave_loss
+                << " P( leave no loss) " << prob_leave_no_loss << std::endl; }
 };
 
 class SwitchingLink : public LossQueue

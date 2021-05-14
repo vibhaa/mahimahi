@@ -43,17 +43,6 @@ int main( int argc, char *argv[] )
             usage( argv[ 0 ] );
         }
 
-        double uplink_loss = 0, downlink_loss = 0;
-
-        const string link = argv[ 2 ];
-        if ( link == "uplink" ) {
-            uplink_loss = loss_rate;
-        } else if ( link == "downlink" ) {
-            downlink_loss = loss_rate;
-        } else {
-            usage( argv[ 0 ] );
-        }
-
         /* parse second probability as probability of leaving loss state 
          * if it is bursty */
         double leave_loss_prob = 0;
@@ -65,7 +54,7 @@ int main( int argc, char *argv[] )
                 usage( argv[ 0 ] );
             }
             
-            const double leave_loss_prob = myatof( argv[ 4 ] );
+            leave_loss_prob = myatof( argv[ 4 ] );
             if ( (0 <= leave_loss_prob) and (leave_loss_prob <= 1) ) {
                 /* do nothing */
             } else {
@@ -74,8 +63,23 @@ int main( int argc, char *argv[] )
             }
         }
 
-        vector<string> command;
+        /* assign losses to the right direction of the link */
+        double uplink_loss = 0, downlink_loss = 0;
+        double uplink_leave_loss_prob = 0, downlink_leave_loss_prob = 0;
 
+        const string link = argv[ 2 ];
+        if ( link == "uplink" ) {
+            uplink_loss = loss_rate;
+            uplink_leave_loss_prob = leave_loss_prob;
+        } else if ( link == "downlink" ) {
+            downlink_loss = loss_rate;
+            downlink_leave_loss_prob = leave_loss_prob;
+        } else {
+            usage( argv[ 0 ] );
+        }
+        
+        /* parse additional command specific options */ 
+        vector<string> command;
         if ( argc == expected_args ) {
             command.push_back( shell_path() );
         } else {
@@ -84,6 +88,7 @@ int main( int argc, char *argv[] )
             }
         }
 
+        /* prefix for the shell - doesn't show up in zsh */
         string shell_prefix = "[loss ";
         if ( link == "uplink" ) {
             shell_prefix += "up=";
@@ -92,7 +97,7 @@ int main( int argc, char *argv[] )
         }
         shell_prefix += argv[ 3 ];
 
-
+        /* start IID or bursty loss packet shell */
         if ( loss_type == "IID" ) {
             shell_prefix += "] ";
             PacketShell<IIDLoss> loss_app( "loss", user_environment );
@@ -104,15 +109,16 @@ int main( int argc, char *argv[] )
             return loss_app.wait_for_exit();
 
         } else if ( loss_type == "bursty") {
-            shell_prefix += " " + argv[4];
+            shell_prefix += " ";
+            shell_prefix += argv[4];
             shell_prefix += "] ";
 
             PacketShell<BurstyLoss> loss_app( "loss", user_environment );
 
             loss_app.start_uplink( shell_prefix,
                                    command,
-                                   leave_loss_prob, uplink_loss );
-            loss_app.start_downlink( leave_loss_prob, downlink_loss );
+                                   uplink_leave_loss_prob, uplink_loss );
+            loss_app.start_downlink( downlink_leave_loss_prob, downlink_loss );
             return loss_app.wait_for_exit();
 
         }
