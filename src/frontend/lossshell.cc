@@ -15,7 +15,7 @@ using namespace std;
 
 void usage( const string & program_name )
 {
-    throw runtime_error( "Usage: " + program_name + " uplink|downlink RATE [COMMAND...]" );
+    throw runtime_error( "Usage: " + program_name + " IID|bursty uplink|downlink RATE1 RATE2 [COMMAND...]" );
 }
 
 int main( int argc, char *argv[] )
@@ -27,21 +27,25 @@ int main( int argc, char *argv[] )
 
         check_requirements( argc, argv );
 
-        if ( argc < 3 ) {
+        if ( argc < 4 ) {
             usage( argv[ 0 ] );
         }
 
-        const double loss_rate = myatof( argv[ 2 ] );
+        const string loss_type = argv[1];
+        int expected_args = 4;
+        
+        /* parse first rate as loss rate/probability of leaving no loss state */
+        const double loss_rate = myatof( argv[ 3 ] );
         if ( (0 <= loss_rate) and (loss_rate <= 1) ) {
             /* do nothing */
         } else {
-            cerr << "Error: loss rate must be between 0 and 1." << endl;
+            cerr << "Error: IID/bursty loss rate/prob must be between 0 and 1." << endl;
             usage( argv[ 0 ] );
         }
 
         double uplink_loss = 0, downlink_loss = 0;
 
-        const string link = argv[ 1 ];
+        const string link = argv[ 2 ];
         if ( link == "uplink" ) {
             uplink_loss = loss_rate;
         } else if ( link == "downlink" ) {
@@ -50,17 +54,35 @@ int main( int argc, char *argv[] )
             usage( argv[ 0 ] );
         }
 
-        vector<string> command;
-
-        if ( argc == 3 ) {
-            command.push_back( shell_path() );
+        /* parse second probability as probability of leaving loss state 
+         * if it is bursty */
+        double leave_loss_prob = 0;
+        if ( loss_type == "IID" ) {
+            expected_args = 4;
         } else {
-            for ( int i = 3; i < argc; i++ ) {
-                command.push_back( argv[ i ] );
+            expected_args = 5;
+            if ( argc < 5 ) {
+                usage( argv[ 0 ] );
+            }
+            
+            const double leave_loss_prob = myatof( argv[ 4 ] );
+            if ( (0 <= leave_loss_prob) and (leave_loss_prob <= 1) ) {
+                /* do nothing */
+            } else {
+                cerr << "Error: bursty loss prob must be between 0 and 1." << endl;
+                usage( argv[ 0 ] );
             }
         }
 
-        PacketShell<IIDLoss> loss_app( "loss", user_environment );
+        vector<string> command;
+
+        if ( argc == expected_args ) {
+            command.push_back( shell_path() );
+        } else {
+            for ( int i = expected_args; i < argc; i++ ) {
+                command.push_back( argv[ i ] );
+            }
+        }
 
         string shell_prefix = "[loss ";
         if ( link == "uplink" ) {
@@ -68,14 +90,37 @@ int main( int argc, char *argv[] )
         } else {
             shell_prefix += "down=";
         }
-        shell_prefix += argv[ 2 ];
-        shell_prefix += "] ";
+        shell_prefix += argv[ 3 ];
 
-        loss_app.start_uplink( shell_prefix,
-                               command,
-                               uplink_loss );
-        loss_app.start_downlink( downlink_loss );
-        return loss_app.wait_for_exit();
+
+        if ( loss_type == "IID" ) {
+            shell_prefix += "] ";
+            PacketShell<IIDLoss> loss_app( "loss", user_environment );
+
+            loss_app.start_uplink( shell_prefix,
+                                   command,
+                                   uplink_loss );
+            loss_app.start_downlink( downlink_loss );
+            return loss_app.wait_for_exit();
+
+        } else if ( loss_type == "bursty") {
+            shell_prefix += " " + argv[4];
+            shell_prefix += "] ";
+
+            PacketShell<BurstyLoss> loss_app( "loss", user_environment );
+
+            loss_app.start_uplink( shell_prefix,
+                                   command,
+                                   leave_loss_prob, uplink_loss );
+            loss_app.start_downlink( leave_loss_prob, downlink_loss );
+            return loss_app.wait_for_exit();
+
+        }
+
+        else {
+            usage( argv[ 0 ] );
+        }
+
     } catch ( const exception & e ) {
         print_exception( e );
         return EXIT_FAILURE;
