@@ -50,23 +50,23 @@ public:
 class BurstyLoss : public LossQueue
 {
 private:
-    std::uniform_real_distribution<> uniform_dist_;
-    
-    const double probability_leave_loss_;
-    const double probability_leave_no_loss_;
-    
     bool in_loss_state_;
+    
+    std::bernoulli_distribution leave_loss_dist_;
+    std::bernoulli_distribution leave_no_loss_dist_;
+    std::bernoulli_distribution drop_dist_;
 
     bool drop_packet( const std::string & packet ) override;
 
 public:
-    BurstyLoss( const double prob_leave_loss, const double prob_leave_no_loss) : 
-        uniform_dist_( 0.0, 1.0 ),
-        probability_leave_loss_( prob_leave_loss ),
-        probability_leave_no_loss_( prob_leave_no_loss ),
-        in_loss_state_( false ) {
+    BurstyLoss( const double loss_rate, const double prob_leave_loss, const double prob_leave_no_loss) : 
+        in_loss_state_( false ), 
+        leave_loss_dist_( prob_leave_loss ),
+        leave_no_loss_dist_( prob_leave_no_loss ),
+        drop_dist_( loss_rate ) {
             std::cerr << "bursty loss link P(leave loss) " << prob_leave_loss
-                << " P( leave no loss) " << prob_leave_no_loss << std::endl; }
+                << " P( leave no loss) " << prob_leave_no_loss 
+                << " loss rate " << loss_rate << std::endl; }
 };
 
 class SwitchingLink : public LossQueue

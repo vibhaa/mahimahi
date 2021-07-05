@@ -39,19 +39,17 @@ bool IIDLoss::drop_packet( const string & packet __attribute((unused)) )
 
 bool BurstyLoss::drop_packet( const string & packet __attribute((unused)) )
 {
-    double value = uniform_dist_( prng_);
-    
     if ( in_loss_state_ ) {
-        if ( value < probability_leave_loss_ ) {
-            in_loss_state_ = false;
-        }
+        in_loss_state_ = not ( leave_loss_dist_( prng_ ) );
     } else {
-        if ( value < probability_leave_no_loss_ ) {
-            in_loss_state_ = true;
-        }
+        in_loss_state_ = leave_no_loss_dist_( prng_ );
     }
 
-    return in_loss_state_;
+    if ( in_loss_state_ ) {
+        return drop_dist_( prng_ );
+    } else {
+        return false;
+    }
 }
 
 static const double MS_PER_SECOND = 1000.0;
